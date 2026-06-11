@@ -36,4 +36,55 @@ describe('uiStore', () => {
     useUiStore.getState().selectUser('user_1002')
     expect(useUiStore.getState().windowFrom).toBe('2026-06-11')
   })
+
+  describe('explorer view state', () => {
+    it('starts unfiltered, unsearched, sorted by date descending', () => {
+      const state = useUiStore.getState()
+      expect(state.categoryFilter).toBeNull()
+      expect(state.directionFilter).toBe('all')
+      expect(state.searchText).toBe('')
+      expect(state.sort).toEqual({ column: 'date', direction: 'desc' })
+    })
+
+    it('sets and clears the category filter', () => {
+      useUiStore.getState().setCategoryFilter('5411')
+      expect(useUiStore.getState().categoryFilter).toBe('5411')
+      useUiStore.getState().setCategoryFilter(null)
+      expect(useUiStore.getState().categoryFilter).toBeNull()
+    })
+
+    it('sets the direction filter and search text', () => {
+      useUiStore.getState().setDirectionFilter('credit')
+      useUiStore.getState().setSearchText('rewe')
+      expect(useUiStore.getState().directionFilter).toBe('credit')
+      expect(useUiStore.getState().searchText).toBe('rewe')
+    })
+
+    it('toggleSort flips direction on the active column', () => {
+      useUiStore.getState().toggleSort('date')
+      expect(useUiStore.getState().sort).toEqual({ column: 'date', direction: 'asc' })
+      useUiStore.getState().toggleSort('date')
+      expect(useUiStore.getState().sort).toEqual({ column: 'date', direction: 'desc' })
+    })
+
+    it('toggleSort on a new column applies that column default direction', () => {
+      useUiStore.getState().toggleSort('amount')
+      expect(useUiStore.getState().sort).toEqual({ column: 'amount', direction: 'desc' })
+      useUiStore.getState().toggleSort('merchant')
+      expect(useUiStore.getState().sort).toEqual({ column: 'merchant', direction: 'asc' })
+    })
+
+    it('clearFilters resets filters and search but keeps the sort', () => {
+      useUiStore.getState().setCategoryFilter('5411')
+      useUiStore.getState().setDirectionFilter('debit')
+      useUiStore.getState().setSearchText('lidl')
+      useUiStore.getState().toggleSort('amount')
+      useUiStore.getState().clearFilters()
+      const state = useUiStore.getState()
+      expect(state.categoryFilter).toBeNull()
+      expect(state.directionFilter).toBe('all')
+      expect(state.searchText).toBe('')
+      expect(state.sort).toEqual({ column: 'amount', direction: 'desc' })
+    })
+  })
 })
