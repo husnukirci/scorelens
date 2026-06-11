@@ -1,9 +1,17 @@
 import type { Transaction, TransactionEvent, TransactionRecord } from '../types'
 
-/** Transactions are flat, so field-level equality is a cheap full comparison. */
+/**
+ * Transactions are flat, so field-level equality is a cheap full comparison.
+ * synced_at is excluded: the server re-stamps it per fetch and per stream
+ * cycle (findings §8) — it carries no client meaning, and counting it would
+ * defeat no-op detection for every replayed event.
+ */
 function sameTransaction(a: Transaction, b: Transaction): boolean {
   const keys = Object.keys(b) as Array<keyof Transaction>
-  return Object.keys(a).length === keys.length && keys.every((key) => a[key] === b[key])
+  return (
+    Object.keys(a).length === keys.length &&
+    keys.every((key) => key === 'synced_at' || a[key] === b[key])
+  )
 }
 
 /**
