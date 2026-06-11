@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { useTransactionStream } from '@/api/sse/useTransactionStream'
 import { Card } from '@/components/Card'
 import { DataState } from '@/components/DataState'
+import { CashflowPanel } from '@/features/cashflow/CashflowPanel'
 import { ExplanationPanel } from '@/features/explanation/ExplanationPanel'
 import { OverviewPanel } from '@/features/overview/OverviewPanel'
 import { BreakdownPanel } from '@/features/score-breakdown/BreakdownPanel'
@@ -35,6 +36,7 @@ export function Shell(): ReactElement {
               <BreakdownPanel userId={selectedUserId} windowFrom={windowFrom} />
             </div>
             <ExplanationPanel userId={selectedUserId} windowFrom={windowFrom} />
+            <CashflowPanel userId={selectedUserId} windowFrom={windowFrom} />
             <TransactionsPanel userId={selectedUserId} windowFrom={windowFrom} />
           </>
         ) : (

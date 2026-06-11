@@ -3,9 +3,9 @@ import type { ReactElement } from 'react'
 import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
 import { signalMeta } from '@/domain/signals'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 
 import type { SignalContribution } from './deriveContributions'
-import { useReducedMotion } from './useReducedMotion'
 
 interface ChartRow {
   label: string
