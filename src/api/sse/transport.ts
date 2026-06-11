@@ -1,4 +1,5 @@
 import { config } from '@/config'
+import { logEvent } from '@/utils/log'
 
 import { ApiError } from '../types'
 import type { Transaction, TransactionEvent } from '../types'
@@ -192,12 +193,14 @@ export function openTransactionStream(options: TransactionStreamOptions): Transa
         failedAttempts = 0
         if (recovering) options.onRecoveryConnect()
         if (!closed) options.onStatus('live')
+        logEvent('stream.connected', { userId: options.userId, path: 'streaming', recovering })
         delivered = await readStreaming(response)
       } else {
         const events = unwrapEnvelope(await response.text())
         failedAttempts = 0
         if (recovering) options.onRecoveryConnect()
         if (!closed) options.onStatus('delayed')
+        logEvent('stream.connected', { userId: options.userId, path: 'envelope', recovering })
         for (const event of events) {
           if (!closed) options.onEvent(event)
         }
@@ -206,16 +209,27 @@ export function openTransactionStream(options: TransactionStreamOptions): Transa
       if (closed) return
       if (delivered > 0 || Date.now() - startedAt >= MIN_PRODUCTIVE_CYCLE_MS) {
         // clean productive cycle: the normal loop — prompt reconnect, no backoff
+        logEvent('stream.cycle', { userId: options.userId, delivered })
         scheduleConnect(CYCLE_RECONNECT_DELAY_MS)
       } else {
         // clean but implausibly fast and empty: treat as misbehavior (see MIN_PRODUCTIVE_CYCLE_MS)
         failedAttempts += 1
+        logEvent('stream.suspect-cycle', { userId: options.userId, failedAttempts }, 'warn')
         options.onStatus('reconnecting')
         scheduleConnect(backoffDelayMs(failedAttempts))
       }
     } catch (error) {
       if (closed || (error instanceof Error && error.name === 'AbortError')) return
       failedAttempts += 1
+      logEvent(
+        'stream.error',
+        {
+          userId: options.userId,
+          failedAttempts,
+          message: error instanceof Error ? error.message : String(error),
+        },
+        'warn',
+      )
       options.onStatus('reconnecting')
       scheduleConnect(backoffDelayMs(failedAttempts))
     }
@@ -228,6 +242,7 @@ export function openTransactionStream(options: TransactionStreamOptions): Transa
       closed = true
       if (reconnectTimer !== null) clearTimeout(reconnectTimer)
       controller?.abort()
+      logEvent('stream.closed', { userId: options.userId })
       options.onStatus('offline')
     },
   }
