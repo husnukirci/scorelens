@@ -44,6 +44,18 @@ describe('applyEvent', () => {
       const replayed = applyEvent(record, added({ ...transaction }))
       expect(replayed).toBe(record)
     })
+
+    it('treats a replay differing only in synced_at as a no-op', () => {
+      // the server stamps synced_at per fetch (findings §8) — it carries no
+      // client meaning, and the live stream re-stamps it every ~30s cycle
+      const transaction = makeTransaction({ synced_at: '2026-06-11T12:00:00.000Z' })
+      const record = applyEvent({}, added(transaction))
+      const restamped = applyEvent(
+        record,
+        added({ ...transaction, synced_at: '2026-06-11T12:00:30.000Z' }),
+      )
+      expect(restamped).toBe(record)
+    })
   })
 
   describe('UPDATED', () => {
