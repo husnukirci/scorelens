@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens — single source of visual truth (ADR-11).
+ * Score-band and signal colors are defined once here and consumed by both
+ * Tailwind utilities (bg-band-high, text-signal-income-regularity, …) and
+ * Recharts via var(--color-…). Band colors always pair with text labels in
+ * the UI; color is never the only signal.
+ */
+@theme {
+  --color-surface: oklch(0.985 0.002 247);
+  --color-surface-raised: oklch(1 0 0);
+  --color-ink: oklch(0.25 0.02 257);
+  --color-ink-muted: oklch(0.51 0.02 257);
+
+  --color-band-low: oklch(0.55 0.19 27);
+  --color-band-medium: oklch(0.68 0.15 75);
+  --color-band-high: oklch(0.56 0.13 155);
+
+  --color-signal-income-regularity: oklch(0.55 0.15 250);
+  --color-signal-income-coverage: oklch(0.6 0.13 200);
+  --color-signal-essential-consistency: oklch(0.58 0.14 300);
+  --color-signal-resilience: oklch(0.62 0.13 130);
+
+  --color-flow-positive: oklch(0.56 0.13 155);
+  --color-flow-negative: oklch(0.55 0.19 27);
+}
