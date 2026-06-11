@@ -26,9 +26,12 @@ export default mergeConfig(
           'src/vite-env.d.ts',
           'src/api/types.gen.ts',
         ],
-        // Per-directory thresholds from CLAUDE.md §7 (api 90/85, utils+domain
-        // 95/90, state 90/85) are added as each directory gains code in Phase 2+.
+        // Per-directory thresholds from CLAUDE.md §7; domain/** attaches when
+        // it gains code — a glob matching zero covered files fails the run.
         thresholds: {
+          'src/api/**': { lines: 90, branches: 85 },
+          'src/state/**': { lines: 90, branches: 85 },
+          'src/utils/**': { lines: 95, branches: 90 },
           'src/config.ts': { lines: 95, branches: 90 },
         },
       },
