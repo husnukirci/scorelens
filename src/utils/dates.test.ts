@@ -1,4 +1,4 @@
-import { subtractCalendarMonths } from './dates'
+import { subtractCalendarMonths, todayIso } from './dates'
 
 describe('subtractCalendarMonths', () => {
   it('moves back within a year', () => {
@@ -21,5 +21,14 @@ describe('subtractCalendarMonths', () => {
 
   it('rejects a malformed date instead of propagating NaN', () => {
     expect(() => subtractCalendarMonths('20-06-2026', 6)).toThrow(/date/i)
+  })
+})
+
+describe('todayIso', () => {
+  it('formats the current date as YYYY-MM-DD in utc', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-11T22:30:00Z'))
+    expect(todayIso()).toBe('2026-06-11')
+    vi.useRealTimers()
   })
 })
