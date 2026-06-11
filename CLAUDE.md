@@ -58,7 +58,7 @@ Violating these is a defect, not a stylistic preference.
 - **No barrel re-exports** (`index.ts` files that only re-export). They break tree-shaking and obscure dependencies.
 - **No `console.log`** in source. `console.warn`/`console.error` for genuine errors; structured dev logging goes through `src/utils/log.ts`, gated behind `import.meta.env.DEV` where dev-only.
 - **No `dangerouslySetInnerHTML`.**
-- **No inline styles.** Tailwind classes or design tokens.
+- **No inline styles** — sole exception: runtime-computed virtualizer geometry (scroll height, row transforms), marked with a why-comment. Tailwind classes or design tokens otherwise.
 - **No new dependencies** outside the pre-approved list (§6) without asking first.
 - **No TODO/FIXME comments, no commented-out code, no `.skip`/`.only`** committed.
 - **No empty `catch` blocks.** Handle or rethrow with context.
