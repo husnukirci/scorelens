@@ -4,9 +4,19 @@ import { subtractCalendarMonths } from '@/utils/dates'
 
 import { apiFetch } from './client'
 import { fetchAllTransactions } from './transactions'
-import type { ReliabilityResponse } from './types'
+import type { DiscoveryResponse, ReliabilityResponse } from './types'
 
 export const SCORING_WINDOW_MONTHS = 6
+
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types -- queryOptions' inferred DataTag return type is the contract; naming it would erase the key/data inference it exists to provide
+export function discoveryQueryOptions() {
+  return queryOptions({
+    queryKey: ['discovery'] as const,
+    queryFn: ({ signal }) => apiFetch<DiscoveryResponse>('/', { signal }),
+    // the user list and data range are fixed for a deployment
+    staleTime: Infinity,
+  })
+}
 
 /**
  * Query keys are built from client state only (ADR-02): user + window.

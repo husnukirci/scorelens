@@ -25,6 +25,17 @@ export type ReliabilityResponse = Required<
 export type TransactionRecord = Readonly<Record<string, Transaction>>
 
 /**
+ * Discovery root (`GET /`). The spec declares no schema for it; this shape is
+ * taken from live verification (docs/api/findings.md §1).
+ */
+export interface DiscoveryResponse {
+  name: string
+  version: string
+  available_users: string[]
+  data_range: { from: string; to: string }
+}
+
+/**
  * Stream events as a discriminated union; the generated shape cannot express
  * that DELETED carries only `transaction_id` (verified in findings §6).
  */
