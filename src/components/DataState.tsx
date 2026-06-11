@@ -1,8 +1,7 @@
 import type { ReactElement, ReactNode } from 'react'
 
 import { Skeleton } from '@/components/Skeleton'
-
-export type DataStateStatus = 'loading' | 'error' | 'empty' | 'ready'
+import type { DataStateStatus } from '@/utils/asyncStatus'
 
 interface DataStateProps {
   status: DataStateStatus
