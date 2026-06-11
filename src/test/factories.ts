@@ -1,4 +1,4 @@
-import type { Transaction } from '@/api/types'
+import type { ReliabilityResponse, Transaction } from '@/api/types'
 
 /**
  * Test-data factories (CLAUDE.md §7: never inline object literals for test
@@ -31,6 +31,37 @@ export function makeTransaction(overrides: Partial<Transaction> = {}): Transacti
     type: 'debit',
     synced_at: '2026-06-11T09:33:11.466Z',
     ...overrides,
+  }
+}
+
+export function makeReliability(overrides: Partial<ReliabilityResponse> = {}): ReliabilityResponse {
+  // user_1001's live response from docs/api/findings.md §3
+  return {
+    user_id: 'user_1001',
+    from: '2026-06-11',
+    currency: 'EUR',
+    reliability_index: 74,
+    score_band: 'MEDIUM',
+    metrics: {
+      income_regularity: 0.83,
+      income_coverage_ratio: 1.56,
+      essential_payments_consistency: 0.83,
+      good_months: 4,
+      negative_balance_days: 38,
+      late_fee_events: 0,
+      ...overrides.metrics,
+    },
+    drivers: overrides.drivers ?? [
+      'Income present in 5/6 months',
+      'Income covers essential expenses (1.56x)',
+      'Essential payments detected consistently',
+      'Savings behavior detected (+21 pts)',
+      'Estimated 38 negative balance day(s) (-10 pts)',
+      'Good cashflow months: 4/6',
+    ],
+    ...Object.fromEntries(
+      Object.entries(overrides).filter(([key]) => key !== 'metrics' && key !== 'drivers'),
+    ),
   }
 }
 
