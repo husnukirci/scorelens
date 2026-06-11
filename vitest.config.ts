@@ -30,6 +30,7 @@ export default mergeConfig(
         // it gains code — a glob matching zero covered files fails the run.
         thresholds: {
           'src/api/**': { lines: 90, branches: 85 },
+          'src/domain/**': { lines: 95, branches: 90 },
           'src/state/**': { lines: 90, branches: 85 },
           'src/utils/**': { lines: 95, branches: 90 },
           'src/config.ts': { lines: 95, branches: 90 },
