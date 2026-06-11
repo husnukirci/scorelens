@@ -30,7 +30,7 @@ scorelens/
 │   ├── app/                # App.tsx (shell, providers, ErrorBoundary), main.tsx
 │   ├── config.ts           # validated, frozen env
 │   ├── api/                # data core: client, types.gen.ts, types.ts, queries.ts,
-│   │   └── sse/            #   transactions.ts (cursor loop); eventSource.ts, applyEvent.ts
+│   │   └── sse/            #   transactions.ts (cursor loop); transport.ts, parser.ts, applyEvent.ts
 │   ├── state/uiStore.ts    # Zustand: user, window, filters, sort, search, stream status
 │   ├── domain/             # signals.ts, scoreBands.ts, categories.ts
 │   ├── features/
@@ -70,9 +70,9 @@ Vite + React + TS strict; Tailwind v4; ESLint (incl. import-direction rule) + Pr
 
 ### Phase 2 — Data core — TDD, adversarial review
 
-Typed fetch client (AbortController, `ApiError` mapping) → cursor-pagination loop → normalized `Record` + Query integration (`queries.ts`, keys from client state) → **`applyEvent` reducer with the full event matrix (tests first)** → `eventSource.ts` (backoff, status) → `useTransactionStream` (setQueryData, reconcile-on-reconnect, debounced reliability invalidation, cleanup).
+Typed fetch client (AbortController, `ApiError` mapping) → cursor-pagination loop → normalized `Record` + Query integration (`queries.ts`, keys from client state) → **`applyEvent` reducer with the full event matrix (tests first)** → `parser.ts` (SSE wire format, tests first) + `transport.ts` (dual-path fetch transport per ADR-17; recovery backoff, status) → `useTransactionStream` (setQueryData, recovery reconcile + degraded-mode safety reconcile, debounced reliability invalidation, cleanup).
 
-**Exit:** full event matrix green; mock-EventSource lifecycle tests green; coverage thresholds met; a throwaway dev page shows live data flowing end-to-end against the real API.
+**Exit:** full event matrix green; mock fetch-stream lifecycle tests green (streaming and envelope paths); coverage thresholds met; a throwaway dev page shows live data flowing end-to-end against the real API.
 
 ### Phase 3 — App shell
 
@@ -105,7 +105,7 @@ Requirement D. Monthly aggregation (TDD on the pure aggregation) → income/expe
 
 ### Phase 7 — Live integration polish — adversarial review
 
-Requirement H hardening. Stream status indicator (`live | reconnecting | offline`, aria-live); reconcile-on-reconnect verified against real API (kill network, watch recovery); event feed panel (Tier 2); tab-visibility pause/resume (Tier 2); rAF batching only if event rate measured to need it (Tier 3).
+Requirement H hardening. Stream status indicator (`live | delayed | reconnecting | offline`, aria-live); reconcile-on-reconnect verified against real API (kill network, watch recovery); event feed panel (Tier 2); tab-visibility pause/resume (Tier 2); rAF batching only if event rate measured to need it (Tier 3).
 
 **Exit:** demo script passes: filters active + chart visible + events streaming → everything stays consistent through a forced disconnect/reconnect.
 

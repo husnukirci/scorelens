@@ -49,7 +49,7 @@ Violating these is a defect, not a stylistic preference.
 
 - **No copying server data into Zustand.** Server state lives in TanStack Query only. The Zustand store holds client/UI state exclusively (see §4). Duplicating server truth is the cardinal sin of this codebase.
 - **No calling the transactions endpoint without pagination params.** The API returns ALL transactions when no params are given; we always use the cursor loop with an explicit limit.
-- **No redux, mobx, jotai, recoil, valtio, rxjs, socket.io.** State is TanStack Query + one Zustand store. SSE uses native `EventSource`.
+- **No redux, mobx, jotai, recoil, valtio, rxjs, socket.io.** State is TanStack Query + one Zustand store. SSE uses the fetch-based dual-path transport (ADR-17): incremental SSE parse when the response is `text/event-stream`, buffered envelope-unwrap otherwise.
 - **No `any` type.** Use `unknown` and narrow, or define the type.
 - **No non-null assertions (`!`)** without an inline comment justifying why null is impossible.
 - **No `as` casts** without a justifying comment. `as unknown as T` is a code smell that needs a comment.
@@ -75,7 +75,7 @@ Violating these is a defect, not a stylistic preference.
 - **All async functions handle errors explicitly.** Unhandled promise rejections are bugs.
 - **`applyEvent` is a pure function.** `(record, event) => record`. No IO, no React, no Date.now() inside. No-op events return the same reference.
 - **SSE writes go through `queryClient.setQueryData`** on the transactions key. Never a parallel store.
-- **Every stream (re)connect triggers reconciliation** (`invalidateQueries` on the transactions key). The stream is an optimization; REST is the truth.
+- **Recovery reconnects trigger reconciliation** (`invalidateQueries` on the transactions key), as does the low-frequency degraded-mode safety reconcile; clean envelope cycles reconnect promptly without reconciling — the envelope carried the events (ADR-17). The stream is an optimization; REST is the truth.
 - **Query keys are built from client state** (`['transactions', userId, from]`). Filters/search/sort are NOT in query keys — they are client-side derives.
 - **Derived data flows through memoized selectors/hooks** (`useVisibleTransactions`, cashflow aggregation). Components never filter/sort inline.
 - **Stable keys in lists** — always entity id, never array index.
@@ -118,8 +118,8 @@ components/ (leaf: imports only hooks/utils/domain/styles)
 
 ### SSE
 
-- One `EventSource` per selected user, owned by `useTransactionStream(userId)`: open on mount/user-change, `close()` on cleanup. A leaked EventSource is a defect.
-- Connection machinery in `api/sse/eventSource.ts`: manual exponential backoff with jitter (1s → 2s → 4s → cap 30s) replacing default retry; status surfaced to the UI store (`live | reconnecting | offline`).
+- One stream connection per selected user, owned by `useTransactionStream(userId)`: open on mount/user-change, aborted on cleanup. A leaked connection is a defect.
+- Connection machinery in `api/sse/transport.ts` (fetch-based dual-path per ADR-17: incremental parse on `text/event-stream`, buffered envelope-unwrap otherwise), with the pure SSE wire parser in `api/sse/parser.ts`. Clean envelope cycles reconnect promptly without backoff; recovery reconnects after errors/abnormal termination use manual exponential backoff with jitter (1s → 2s → 4s → cap 30s); status surfaced to the UI store (`live | delayed | reconnecting | offline`; `delayed` copy surfaces the measured cadence).
 - Event semantics in `api/sse/applyEvent.ts` (pure): ADDED = upsert; UPDATED = upsert (unknown id treated as ADDED); DELETED of unknown id = no-op, same reference. Idempotent by construction.
 - Transaction mutations trigger a **debounced invalidation of the reliability query** (score stays consistent with underlying data).
 - Tab hidden → pause stream; tab visible → reconnect + reconcile.
@@ -183,6 +183,7 @@ Anything else: **ask before installing**, justify in the PR.
 ### Test-first (strict TDD) for:
 
 - `api/sse/applyEvent.ts` — the full event matrix: add, update, delete, duplicate event, out-of-order arrival, update-for-unknown-id, delete-for-unknown-id, delete-then-update, no-op reference stability
+- `api/sse/parser.ts` — SSE wire format: field handling and blank-line dispatch, chunk-boundary reassembly, CRLF endings, multi-`data:`-line events, comment lines, ignored `retry:` fields
 - The cursor-pagination fetch loop (page assembly, normalization, abort, malformed cursor)
 - `useVisibleTransactions` derive logic (filter/search/sort composition) — test the pure derive function, hook is a thin wrapper
 - Cashflow monthly aggregation
@@ -194,7 +195,7 @@ Write the failing test first, watch it fail, then implement.
 ### Test-after (pragmatic) for:
 
 - Feature components: renders correctly, key interactions, `DataState` integration
-- `useTransactionStream` with a mock EventSource (connect, event dispatch, error → backoff → reconcile, cleanup closes)
+- `useTransactionStream` with a mock fetch-stream transport, both paths (connect, event dispatch, clean-cycle reconnect without reconcile, error → backoff → reconcile, cleanup aborts)
 - One vitest-axe smoke test on the assembled main view
 
 ### Don't test:
@@ -212,7 +213,7 @@ Write the failing test first, watch it fail, then implement.
 ### Conventions:
 
 - Factories in `src/test/factories.ts`; never inline object literals for test data
-- MSW for network; mock `EventSource` class for streams
+- MSW for network; mock fetch-stream transport for streams (streaming and envelope paths)
 - Test names describe behavior: `'returns same reference when deleting unknown transaction id'`, not `'calls delete handler'`
 
 ---
