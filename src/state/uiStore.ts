@@ -9,6 +9,20 @@ export interface SortState {
   direction: 'asc' | 'desc'
 }
 
+/**
+ * Ephemeral session activity log for the live feed — what the stream DID,
+ * capped and gone on reload. Deliberately not server state: it cannot be
+ * refetched; canonical transaction truth stays in the Query cache (ADR-02).
+ */
+export interface StreamFeedEntry {
+  at: string
+  type: 'TRANSACTION_ADDED' | 'TRANSACTION_UPDATED' | 'TRANSACTION_DELETED'
+  transactionId: string
+  merchant?: string
+}
+
+const STREAM_FEED_LIMIT = 20
+
 /** Newest dates and largest amounts first; merchants alphabetical. */
 const SORT_DEFAULTS: Record<SortColumn, SortState['direction']> = {
   date: 'desc',
@@ -31,6 +45,7 @@ interface UiState {
   directionFilter: DirectionFilter
   searchText: string
   sort: SortState
+  streamEvents: StreamFeedEntry[]
   selectUser: (userId: string) => void
   setWindowFrom: (date: string) => void
   setStreamStatus: (status: StreamStatus) => void
@@ -39,6 +54,7 @@ interface UiState {
   setSearchText: (text: string) => void
   toggleSort: (column: SortColumn) => void
   clearFilters: () => void
+  pushStreamEvent: (entry: StreamFeedEntry) => void
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -49,6 +65,7 @@ export const useUiStore = create<UiState>()((set) => ({
   directionFilter: 'all',
   searchText: '',
   sort: { column: 'date', direction: 'desc' },
+  streamEvents: [],
   selectUser: (userId) => set({ selectedUserId: userId }),
   setWindowFrom: (date) => set({ windowFrom: date }),
   setStreamStatus: (status) => set({ streamStatus: status }),
@@ -63,4 +80,6 @@ export const useUiStore = create<UiState>()((set) => ({
           : { column, direction: SORT_DEFAULTS[column] },
     })),
   clearFilters: () => set({ categoryFilter: null, directionFilter: 'all', searchText: '' }),
+  pushStreamEvent: (entry) =>
+    set((state) => ({ streamEvents: [entry, ...state.streamEvents].slice(0, STREAM_FEED_LIMIT) })),
 }))
