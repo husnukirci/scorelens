@@ -18,7 +18,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix --max-warnings 0",
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
       "prettier --write"
     ],
     "*.{css,md,json,yml,yaml}": [
@@ -26,8 +26,10 @@
     ]
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",

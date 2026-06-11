@@ -23,9 +23,9 @@ const layerZones = [
   { target: './src/components', from: './src/api' },
   { target: './src/components', from: './src/state' },
   { target: './src/components', from: './src/app' },
-  // domain and utils import nothing internal
-  { target: './src/domain', from: './src' },
-  { target: './src/utils', from: './src' },
+  // domain and utils import nothing internal (own directory excepted)
+  { target: './src/domain', from: './src', except: ['./domain'] },
+  { target: './src/utils', from: './src', except: ['./utils'] },
   // hooks may import utils (and domain registries) only
   { target: './src/hooks', from: './src/features' },
   { target: './src/hooks', from: './src/components' },

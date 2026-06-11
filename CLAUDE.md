@@ -99,6 +99,7 @@ components/ (leaf: imports only hooks/utils/domain/styles)
 ```
 
 - Features may import from the data core; the data core never imports from features; shared `components/` import from nobody above them.
+- api hooks may write stream connection status to uiStore; transport and parser stay store-free.
 - `domain/` and `utils/` import nothing internal. `hooks/` may import `utils/`.
 - Enforced via ESLint `import/no-restricted-paths`. A violation is a defect.
 - Promotion rule: hooks/utils start colocated in their feature and move to `src/hooks/` / `src/utils/` only when a **second** feature needs them. Never preemptively.
