@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import type { MockInstance } from 'vitest'
 
@@ -146,6 +146,58 @@ describe('useTransactionStream', () => {
       ([filters]) => JSON.stringify(filters?.queryKey) === JSON.stringify(KEY),
     )
     expect(transactionsInvalidations).toHaveLength(1)
+    unmount()
+  })
+
+  it('records applied events in the activity feed but never no-ops', async () => {
+    const transaction = makeTransaction()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        envelopeResponse(`${addedWire(1, transaction)}${deletedWire(2, 'txn_never_existed')}`),
+      )
+    const { queryClient, unmount } = setup(fetchMock)
+    queryClient.setQueryData(KEY, {})
+    await vi.advanceTimersByTimeAsync(0)
+    const feed = useUiStore.getState().streamEvents
+    expect(feed).toHaveLength(1)
+    expect(feed[0]?.transactionId).toBe(transaction.id)
+    expect(feed[0]?.type).toBe('TRANSACTION_ADDED')
+    unmount()
+  })
+
+  it('pauses while the tab is hidden and reconciles on resume', async () => {
+    const transaction = makeTransaction()
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(envelopeResponse(addedWire(1, transaction))))
+    const { invalidateSpy, unmount } = setup(fetchMock)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useUiStore.getState().streamStatus).toBe('delayed')
+    const callsBeforeHide = fetchMock.mock.calls.length
+
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(useUiStore.getState().streamStatus).toBe('offline')
+    // hidden: the cycle stops scheduling new connects
+    await vi.advanceTimersByTimeAsync(CYCLE_RECONNECT_DELAY_MS * 4)
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeHide)
+
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    // resume reconnected and reconciled against REST
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBeforeHide)
+    const reconciles = invalidateSpy.mock.calls.filter(
+      ([filters]) => JSON.stringify(filters?.queryKey) === JSON.stringify(KEY),
+    )
+    expect(reconciles.length).toBe(1)
+    expect(useUiStore.getState().streamStatus).toBe('delayed')
     unmount()
   })
 
