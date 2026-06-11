@@ -4,11 +4,14 @@ import type { ReactElement } from 'react'
 import { useTransactionStream } from '@/api/sse/useTransactionStream'
 import { Card } from '@/components/Card'
 import { DataState } from '@/components/DataState'
+import { ExplanationPanel } from '@/features/explanation/ExplanationPanel'
+import { OverviewPanel } from '@/features/overview/OverviewPanel'
+import { BreakdownPanel } from '@/features/score-breakdown/BreakdownPanel'
+import { TransactionsPanel } from '@/features/transactions/TransactionsPanel'
 import { useUiStore } from '@/state/uiStore'
 import { todayIso } from '@/utils/dates'
 
 import { Header } from './Header'
-import { ShellPanels } from './ShellPanels'
 
 export function Shell(): ReactElement {
   const selectedUserId = useUiStore((state) => state.selectedUserId)
@@ -26,7 +29,14 @@ export function Shell(): ReactElement {
       <Header />
       <main className="mx-auto max-w-5xl space-y-4 p-4">
         {selectedUserId !== null && windowFrom !== null ? (
-          <ShellPanels userId={selectedUserId} windowFrom={windowFrom} />
+          <>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <OverviewPanel userId={selectedUserId} windowFrom={windowFrom} />
+              <BreakdownPanel userId={selectedUserId} windowFrom={windowFrom} />
+            </div>
+            <ExplanationPanel userId={selectedUserId} windowFrom={windowFrom} />
+            <TransactionsPanel userId={selectedUserId} windowFrom={windowFrom} />
+          </>
         ) : (
           <Card>
             <DataState status="empty" emptyMessage="Select a user to begin.">
