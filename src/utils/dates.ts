@@ -1,5 +1,10 @@
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
+/** Today as an ISO date (YYYY-MM-DD), UTC — the default scoring-window end. */
+export function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 function daysInMonth(year: number, monthIndex: number): number {
   return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 }
