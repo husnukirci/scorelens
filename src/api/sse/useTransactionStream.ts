@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 
 import { useUiStore } from '@/state/uiStore'
+import { logEvent } from '@/utils/log'
 
 import { reliabilityQueryKey, transactionsQueryKey } from '../queries'
 import type { TransactionRecord } from '../types'
@@ -56,12 +57,14 @@ export function useTransactionStream(userId: string | null, windowFrom: string |
         setStreamStatus(status)
       },
       onRecoveryConnect: () => {
+        logEvent('stream.reconciled', { userId, reason: 'recovery' })
         void queryClient.invalidateQueries({ queryKey: transactionsKey })
       },
     })
 
     const safetyTimer = setInterval(() => {
       if (lastStatus === 'delayed') {
+        logEvent('stream.reconciled', { userId, reason: 'safety-interval' })
         void queryClient.invalidateQueries({ queryKey: transactionsKey })
       }
     }, SAFETY_RECONCILE_MS)

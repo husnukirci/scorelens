@@ -1,3 +1,5 @@
+import { logEvent } from '@/utils/log'
+
 import { apiFetch } from './client'
 import type { OffsetPage, Transaction, TransactionRecord } from './types'
 
@@ -25,6 +27,7 @@ export async function fetchAllTransactions(
   options: FetchAllTransactionsOptions,
 ): Promise<TransactionRecord> {
   const record: Record<string, Transaction> = {}
+  const startedAt = Date.now()
   let page = 1
   for (;;) {
     const body = await apiFetch<OffsetPage>(`/api/users/${userId}/transactions`, {
@@ -42,5 +45,11 @@ export async function fetchAllTransactions(
     if (!body.has_more) break
     page += 1
   }
+  logEvent('transactions.fill', {
+    userId,
+    pages: page,
+    total: Object.keys(record).length,
+    durationMs: Date.now() - startedAt,
+  })
   return record
 }
