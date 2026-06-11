@@ -24,6 +24,7 @@ export default {
         'components',
         'utils',
         'a11y',
+        'claude',
         'infra',
         'deps',
         'tooling',
