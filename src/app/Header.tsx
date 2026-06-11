@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 
 import { discoveryQueryOptions } from '@/api/queries'
+import { StreamStatusIndicator } from '@/features/live/StreamStatusIndicator'
 import { useUiStore } from '@/state/uiStore'
 
 const controlClass =
@@ -69,6 +70,9 @@ export function Header(): ReactElement {
         <div className="flex flex-wrap items-center gap-4">
           <UserPicker />
           <WindowPicker />
+        </div>
+        <div className="ml-auto">
+          <StreamStatusIndicator />
         </div>
       </div>
     </header>
