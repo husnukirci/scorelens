@@ -1,0 +1,10 @@
+dist/
+coverage/
+node_modules/
+package-lock.json
+src/api/types.gen.ts
+
+# contract documents are not reformatted by tooling
+CLAUDE.md
+PLAN.md
+docs/
