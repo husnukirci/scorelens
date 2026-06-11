@@ -74,6 +74,21 @@ describe('uiStore', () => {
       expect(useUiStore.getState().sort).toEqual({ column: 'merchant', direction: 'asc' })
     })
 
+    it('keeps an ephemeral activity feed capped at twenty entries, newest first', () => {
+      for (let index = 1; index <= 25; index += 1) {
+        useUiStore.getState().pushStreamEvent({
+          at: `2026-06-11T10:00:${String(index).padStart(2, '0')}Z`,
+          type: 'TRANSACTION_ADDED',
+          transactionId: `txn_${index}`,
+          merchant: 'REWE Markt',
+        })
+      }
+      const events = useUiStore.getState().streamEvents
+      expect(events).toHaveLength(20)
+      expect(events[0]?.transactionId).toBe('txn_25')
+      expect(events[19]?.transactionId).toBe('txn_6')
+    })
+
     it('clearFilters resets filters and search but keeps the sort', () => {
       useUiStore.getState().setCategoryFilter('5411')
       useUiStore.getState().setDirectionFilter('debit')

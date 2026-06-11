@@ -6,6 +6,7 @@ import { Card } from '@/components/Card'
 import { DataState } from '@/components/DataState'
 import { CashflowPanel } from '@/features/cashflow/CashflowPanel'
 import { ExplanationPanel } from '@/features/explanation/ExplanationPanel'
+import { EventFeedPanel } from '@/features/live/EventFeedPanel'
 import { OverviewPanel } from '@/features/overview/OverviewPanel'
 import { BreakdownPanel } from '@/features/score-breakdown/BreakdownPanel'
 import { TransactionsPanel } from '@/features/transactions/TransactionsPanel'
@@ -38,6 +39,7 @@ export function Shell(): ReactElement {
             <ExplanationPanel userId={selectedUserId} windowFrom={windowFrom} />
             <CashflowPanel userId={selectedUserId} windowFrom={windowFrom} />
             <TransactionsPanel userId={selectedUserId} windowFrom={windowFrom} />
+            <EventFeedPanel />
           </>
         ) : (
           <Card>
