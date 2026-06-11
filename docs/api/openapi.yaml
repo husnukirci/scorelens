@@ -1,0 +1,365 @@
+openapi: 3.0.3
+info:
+  title: Credit Builder API
+  description: |
+    Backend API for the Reliability Index Explorer frontend assignment.
+
+    This API computes a Reliability Index (0–100) from bank transaction data
+    and serves transaction history for visualization.
+
+    ## Available Users
+    Use the discovery endpoint (`GET /`) to see available user IDs.
+
+    ## Data Range
+    Transaction data covers **September 2025 through June 2027**.
+
+    ## Scoring Model
+    The reliability index is computed from 4 components:
+    - **Income Regularity** (0–25 pts): How consistently income appears each month
+    - **Income Coverage Ratio** (0–25 pts): Whether income covers essential expenses
+    - **Essential Payments Consistency** (0–25 pts): Regular essential bill payments
+    - **Resilience Adjustments** (−20 to +25 pts): Savings, penalties, risk spending
+
+    ## Score Bands
+    - LOW: 0–49
+    - MEDIUM: 50–74
+    - HIGH: 75–100
+
+    ## Streaming Updates
+    The `/transaction-events` endpoint provides Server-Sent Events (SSE) for
+    real-time transaction updates.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+
+paths:
+  /:
+    get:
+      summary: API discovery
+      responses:
+        '200':
+          description: API metadata and available endpoints
+
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  upstream:
+                    type: string
+
+  /api/users/{userId}/reliability:
+    get:
+      summary: Compute reliability index
+      description: |
+        Computes and returns the reliability index for a user based on their
+        transaction history within a 6-month scoring window.
+
+        The scoring window extends 6 calendar months back from the `from` date.
+        Example: `from=2026-02-20` → window is `2025-09-01` to `2026-02-20`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: user_1001
+        - name: from
+          in: query
+          required: true
+          description: End date of the scoring window (YYYY-MM-DD). The window extends 6 months back.
+          schema:
+            type: string
+            format: date
+          example: "2026-02-20"
+      responses:
+        '200':
+          description: Reliability score with metrics and explanatory drivers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReliabilityResponse'
+              example:
+                user_id: user_1001
+                from: "2026-02-20"
+                currency: EUR
+                reliability_index: 64
+                score_band: MEDIUM
+                metrics:
+                  income_regularity: 0.83
+                  income_coverage_ratio: 1.41
+                  essential_payments_consistency: 0.89
+                  good_months: 4
+                  negative_balance_days: 54
+                  late_fee_events: 1
+                drivers:
+                  - "Income present in 5/6 months"
+                  - "Income covers essential expenses (1.41x)"
+                  - "Essential payments detected consistently"
+                  - "Savings behavior detected (+13 pts)"
+                  - "Estimated 54 negative balance day(s) (-10 pts)"
+                  - "1 late fee event(s) detected (-1 pts)"
+                  - "Good cashflow months: 4/6"
+        '400':
+          description: Missing `from` parameter
+        '404':
+          description: User not found
+
+  /api/users/{userId}/transactions:
+    get:
+      summary: List user transactions
+      description: |
+        Returns transactions for a user within a date range.
+
+        Supports two pagination modes:
+        - **Cursor-based**: Use `cursor` parameter from previous response's `next_cursor`
+        - **Offset/limit**: Use `page` and `limit` parameters
+
+        **Note:** If no pagination parameters are provided, ALL transactions are returned.
+        For large date ranges this can be 10,000+ records.
+
+        Transactions are returned in arbitrary order. Client-side sorting is required.
+
+        No category filtering is available. All categories are included in the response.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2025-09-01"
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2026-02-20"
+        - name: cursor
+          in: query
+          required: false
+          description: Cursor for cursor-based pagination
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          description: Page number (1-indexed) for offset pagination
+          schema:
+            type: integer
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of items per page (default 50 when using pagination)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CursorPaginatedResponse'
+                  - $ref: '#/components/schemas/OffsetPaginatedResponse'
+                  - $ref: '#/components/schemas/UnpaginatedResponse'
+        '400':
+          description: Missing required parameters
+        '404':
+          description: User not found
+
+  /api/users/{userId}/transaction-events:
+    get:
+      summary: Transaction update stream (SSE)
+      description: |
+        Server-Sent Events stream that delivers real-time transaction updates.
+
+        The stream sends a pre-scripted sequence of events over ~30 seconds,
+        then closes. Events include:
+        - `TRANSACTION_ADDED` — New transaction created
+        - `TRANSACTION_UPDATED` — Existing transaction modified
+        - `TRANSACTION_DELETED` — Transaction removed
+
+        Each event has an `id` field for reconnection support.
+
+        **Note:** `Last-Event-ID` header is accepted but not used for replay.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE format:
+                  ```
+                  id: 1
+                  event: TRANSACTION_ADDED
+                  data: {"type":"TRANSACTION_ADDED","transaction":{...}}
+                  ```
+
+components:
+  schemas:
+    ReliabilityResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+        from:
+          type: string
+          format: date
+        currency:
+          type: string
+        reliability_index:
+          type: integer
+          minimum: 0
+          maximum: 100
+        score_band:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        metrics:
+          $ref: '#/components/schemas/ScoringMetrics'
+        drivers:
+          type: array
+          items:
+            type: string
+          description: Human-readable explanations of scoring factors
+
+    ScoringMetrics:
+      type: object
+      properties:
+        income_regularity:
+          type: number
+          description: "Ratio: months_with_income / 6"
+        income_coverage_ratio:
+          type: number
+          description: "Ratio: total_income / total_essential_expenses"
+        essential_payments_consistency:
+          type: number
+          description: "Ratio: present category-months / expected category-months"
+        good_months:
+          type: integer
+          description: Months where income exceeded essential expenses
+        negative_balance_days:
+          type: integer
+          description: Estimated days with negative running balance
+        late_fee_events:
+          type: integer
+          description: Number of late fee transactions detected
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        account_id:
+          type: string
+        user_id:
+          type: string
+        amount:
+          type: number
+          description: Negative = debit, positive = credit
+        currency:
+          type: string
+        date:
+          type: string
+          format: date
+        description:
+          type: string
+        merchant_category_code:
+          type: string
+        merchant_name:
+          type: string
+        type:
+          type: string
+          enum: [debit, credit]
+          description: Redundant with amount sign (deliberate)
+        synced_at:
+          type: string
+          format: date-time
+
+    CursorPaginatedResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        next_cursor:
+          type: string
+          nullable: true
+        total:
+          type: integer
+
+    OffsetPaginatedResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        total_pages:
+          type: integer
+        has_more:
+          type: boolean
+
+    UnpaginatedResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        total:
+          type: integer
+        has_more:
+          type: boolean
+
+    TransactionEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [TRANSACTION_ADDED, TRANSACTION_UPDATED, TRANSACTION_DELETED]
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        transaction_id:
+          type: string
+          description: Only present for TRANSACTION_DELETED events
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
