@@ -1,6 +1,6 @@
 # scorelens
 
-**Live: _deployment pending — see [Deployment](#deployment)_**
+**Live: <https://scorelens-tau.vercel.app>**
 
 Explainable reliability scoring for risk analysts. scorelens visualizes a Reliability
 Index (0–100) computed from bank transaction data — score overview, signal breakdown,
