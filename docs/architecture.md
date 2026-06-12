@@ -98,7 +98,7 @@ stateDiagram-v2
     Closed --> [*]: unmount<br/>status offline
 ```
 
-Event semantics in the reducer (`applyEvent`, strict-TDD, 18-case matrix): ADDED and
+Event semantics in the reducer (`applyEvent`, strict-TDD, 16-case matrix): ADDED and
 UPDATED are both upserts (an UPDATED for an unknown id carries a complete payload — it
 is an add); DELETED of an unknown id is a no-op returning the same reference. No-ops
 produce zero cache writes and therefore zero renders; `synced_at` is excluded from

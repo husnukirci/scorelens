@@ -73,7 +73,7 @@ was probed before any code was written: [docs/api/findings.md](docs/api/findings
 
 ## Testing
 
-Strict TDD on the correctness-critical core — the event reducer (18-case matrix:
+Strict TDD on the correctness-critical core — the event reducer (16-case matrix:
 duplicates, out-of-order, unknown-id update/delete, reference stability), the SSE wire
 parser (CRLF, multi-`data:`, chunk reassembly), the pagination loop, the derive
 pipeline, monthly aggregation, config validation, store actions — pragmatic
