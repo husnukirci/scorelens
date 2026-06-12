@@ -148,30 +148,105 @@ refactor. What it emits today, to the console:
   four-state design; adding a fifth is the named follow-up).
 - **Reconnects refetch the full window** rather than a delta — acceptable at hundreds
   of rows; delta endpoints or server-supported resume are the scaling knob (ADR-05).
+- **Derive-timing events named in ADR-15 are not wired** — render-layer evidence
+  comes from the dev-gated render-count instrumentation (`profiler.row-render`).
 - **Future-dated data is normal** — the dataset runs to 2027-06; no date logic assumes
   `date <= today`.
 
 ## Discussion
 
-> Written answers to the seven architecture topics, each linking to the decision record
-> and code that evidence it. _(Being drafted; the evidence trail per topic:)_
+Written answers to the seven architecture topics, each linking to the decision records
+([docs/decisions.md](docs/decisions.md)) and evidence that ground them.
 
-1. **API design & evolution** — generated types from the committed spec snapshot
-   (ADR-07, `make types`); registries with unknown-id fallbacks (ADR-12)
-2. **Data ownership & boundaries** — backend owns scoring semantics, frontend owns
-   presentation (ADR-12); the BFF-over-upstream shape observed in
-   [findings §1](docs/api/findings.md)
-3. **Data consistency & correctness** — normalized record + derived order (ADR-03),
-   idempotent `applyEvent`, reconcile triggers (ADR-05/17)
-4. **Scalability (100K+)** — what changes (server-side filtering, windowed fetch,
-   filters into query keys) vs. what survives (normalization, virtualization, derive
-   discipline) — ADR-04's pivot section
-5. **Real-time updates** — "the stream is an optimization, REST is the truth";
-   cycle-vs-recovery semantics; honest status (ADR-05/06/17)
-6. **Caching & performance** — query staleness/invalidation map: what invalidates what
-   and why (ADR-02; debounced score invalidation in ADR-05)
-7. **Incident thinking** — the [Observability](#observability) section is the artifact
-   (ADR-15)
+### API Design & Evolution
+
+The contract is pinned and machine-checked: the OpenAPI spec is committed as a
+snapshot ([docs/api/openapi.yaml](docs/api/openapi.yaml)) and TypeScript types are
+generated from it (ADR-07), so an evolved contract becomes a regenerate-and-compile
+diff rather than a runtime surprise. New data is additive by design: rendering
+iterates registries keyed by API ids, and unknown ids render through a neutral
+fallback instead of crashing — a new category or score band appears (unstyled) the
+day the backend ships it, and becomes first-class with one registry entry (ADR-12).
+The breakdown's unknown-signal fallback is implemented and test-pinned, ready for the
+day signal data ships from the API rather than being derived client-side. This wasn't
+theoretical: the deployed SSE endpoint already diverged from its nominal contract,
+and the dual-path transport (ADR-17) is the worked example of absorbing contract
+drift without blocking on the backend.
+
+### Data Ownership & Boundaries
+
+The backend owns scoring semantics and numeric truth; this frontend owns presentation
+and clearly-labeled projections of that truth (the visible transaction set, monthly
+cashflow aggregation, derived signal contributions — marked as derived by this tool,
+never presented as API output). Validation reflects the same boundary: payloads from
+the trusted backend get shallow structural checks, not deep revalidation (a
+deliberate trade-off, documented at the type guard). The REST host is itself a BFF
+proxying an upstream banking API ([findings §1](docs/api/findings.md)), which is the
+right place for cross-cutting concerns; at scale, filtering and aggregation migrate
+behind that boundary too.
+
+### Data Consistency & Correctness
+
+Out-of-order data is solved by construction rather than by handling: transactions
+live in a normalized record keyed by id, wire order carries no meaning, and display
+order is always derived (ADR-03). Stream events apply through a pure, idempotent
+reducer (16 tested cases — duplicates, unknown-id updates, delete-before-add are all
+defined behavior). The stream is treated as an optimization and REST as the truth
+(ADR-05/17): recovery reconnects trigger reconciliation, clean envelope cycles don't
+(they carried the events), and a low-frequency safety reconcile in degraded mode
+catches drift. Score and transactions can't diverge visibly: transaction mutations
+debounce-invalidate the reliability query.
+
+### Scalability (100K+ transactions)
+
+The seams are placed where this evolution cuts. What changes: filtering/search/sort
+move server-side, the full-fetch becomes windowed/infinite loading, filters move into
+query keys, and the stream needs server-supported resume or delta endpoints instead
+of full-refetch reconciliation. What survives unchanged: normalization,
+virtualization (already proven at 25,003 synthetic rows — DOM constant at 23
+elements, 11.2ms average frame, p95 25ms), the derive discipline (shrinking to
+presentation-only), and the pure event reducer. ADR-04 records the pivot conditions
+explicitly — this codebase knows which of its decisions are load-bearing and which
+are scale-bounded.
+
+### Real-Time Updates
+
+The design assumes gaps are normal, because the transport can't promise otherwise
+(stateless Lambda, no replay). That produces the central rule: the stream keeps the
+UI fresh _between_ reconciliations; REST remains authoritative (ADR-05). The UI never
+overstates freshness — when the deployed endpoint delivers buffered batches, the
+indicator says "delayed" with the measured cadence, not "live." For higher
+frequencies, the next steps are already seamed: batched cache writes per animation
+frame, and the no-op-returns-same-reference reducer property already guarantees that
+irrelevant events cost zero renders.
+
+### Caching & Performance
+
+TanStack Query is the cache, and the invalidation map is explicit (ADR-02): user or
+window changes are new query keys (no invalidation needed); recovery reconnects
+invalidate transactions; transaction mutations debounce-invalidate reliability;
+degraded mode adds a low-frequency safety reconcile. Filters deliberately stay out of
+query keys — they're synchronous client-side derives, so a filter change costs zero
+network. Render performance follows a written policy (ADR-13): exactly three
+designated hot paths are memoized (virtualized rows, the derive pipeline, the stream
+write path), each with measured evidence rather than speculative useMemo — a live
+stream cycle re-rendered zero of 174 unaffected rows.
+
+### Incident Thinking
+
+The app ships its own debugging instruments (ADR-15): a structured logging seam
+(stream lifecycle with attempt counts, fetch-loop pages and durations, dev-gated
+render-count instrumentation), an ErrorBoundary that captures a structured payload
+(selection state, last stream status), and the stream status indicator as the first
+triage signal — the full inventory is in [Observability](#observability). "Slow"
+bisects along the log seams — data layer (fetch/stream timings) versus render layer
+(Profiler, the same method used to capture this repo's performance evidence).
+"Incorrect" starts at reconciliation: force a refetch, diff against the
+stream-applied state. Production hardening is a transport swap at the log seam
+(Sentry, web-vitals), not a refactor. This isn't hypothetical either — the SSE
+endpoint misconfiguration was diagnosed with exactly this method: observe, measure
+byte timing, isolate root cause, and design around it
+([findings §6](docs/api/findings.md)).
 
 ## Deployment
 
